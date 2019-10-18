@@ -1,7 +1,6 @@
 package fasit
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/Jeffail/gabs"
@@ -10,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -75,14 +73,10 @@ type FasitClient struct {
 }
 
 type FasitClientAdapter interface {
-	getScopedResource(resourcesRequest ResourceRequest, fasitEnvironment, application, zone string) (NaisResource, naisd.AppError)
-	createResource(resource naisd.ExposedResource, fasitEnvironmentClass, fasitEnvironment, hostname string, deploymentRequest naisd.Deploy) (int, error)
-	updateResource(existingResource NaisResource, resource naisd.ExposedResource, fasitEnvironmentClass, fasitEnvironment, hostname string, deploymentRequest naisd.Deploy) (int, error)
 	GetFasitEnvironmentClass(environmentName string) (string, error)
 	GetFasitApplication(application string) error
 	GetScopedResources(resourcesRequests []ResourceRequest, fasitEnvironment string, application string, zone string) (resources []NaisResource, err error)
 	getLoadBalancerConfig(application string, fasitEnvironment string) (*NaisResource, error)
-	createApplicationInstance(deploymentRequest naisd.Deploy, fasitEnvironment, subDomain string, exposedResourceIds, usedResourceIds []int) error
 }
 
 type FasitResource struct {
@@ -107,15 +101,15 @@ type ResourceRequest struct {
 }
 
 type NaisResource struct {
-	id           int
-	name         string
-	resourceType string
-	scope        Scope
-	properties   map[string]string
-	propertyMap  map[string]string
-	secret       map[string]string
-	certificates map[string][]byte
-	ingresses    []FasitIngress
+	ID           int               `json:"id"`
+	Name         string            `json:"name"`
+	ResourceType string            `json:"resourceType"`
+	Scope        Scope             `json:"scope"`
+	Properties   map[string]string `json:"properties"`
+	PropertyMap  map[string]string `json:"propertyMap"`
+	Secret       map[string]string `json:"secret"`
+	Certificates map[string][]byte `json:"certificates"`
+	Ingresses    []FasitIngress    `json:"ingresses"`
 }
 
 func DefaultResourceRequests() []ResourceRequest {
@@ -128,27 +122,15 @@ func DefaultResourceRequests() []ResourceRequest {
 	}
 }
 
-func (nr NaisResource) Properties() map[string]string {
-	return nr.properties
-}
-
-func (nr NaisResource) Secret() map[string]string {
-	return nr.secret
-}
-
-func (nr NaisResource) Certificates() map[string][]byte {
-	return nr.certificates
-}
-
 func (nr NaisResource) ToEnvironmentVariable(property string) string {
 	return strings.ToUpper(nr.ToResourceVariable(property))
 }
 
 func (nr NaisResource) ToResourceVariable(property string) string {
-	if value, ok := nr.propertyMap[property]; ok {
+	if value, ok := nr.PropertyMap[property]; ok {
 		property = value
-	} else if nr.resourceType != "applicationproperties" {
-		property = nr.name + "_" + property
+	} else if nr.ResourceType != "applicationproperties" {
+		property = nr.Name + "_" + property
 	}
 
 	return strings.ToLower(normalizePropertyName(property))
@@ -203,23 +185,14 @@ func (fasit FasitClient) getLoadBalancerConfig(application string, fasitEnvironm
 	}
 
 	return &NaisResource{
-		name:         "",
-		properties:   nil,
-		resourceType: "LoadBalancerConfig",
-		certificates: nil,
-		secret:       nil,
-		ingresses:    ingresses,
+		Name:         "",
+		Properties:   nil,
+		ResourceType: "LoadBalancerConfig",
+		Certificates: nil,
+		Secret:       nil,
+		Ingresses:    ingresses,
 	}, nil
 
-}
-
-func getResourceIds(usedResources []NaisResource) (usedResourceIds []int) {
-	for _, resource := range usedResources {
-		if resource.resourceType != "LoadBalancerConfig" {
-			usedResourceIds = append(usedResourceIds, resource.id)
-		}
-	}
-	return usedResourceIds
 }
 
 func FetchFasitResources(fasit FasitClientAdapter, application string, fasitEnvironment string, zone string, usedResources []naisd.UsedResource) (naisresources []NaisResource, err error) {
@@ -248,9 +221,6 @@ func FetchFasitResources(fasit FasitClientAdapter, application string, fasitEnvi
 
 	return naisresources, nil
 
-}
-func arrayToString(a []int) string {
-	return strings.Trim(strings.Replace(fmt.Sprint(a), " ", ",", -1), "[]")
 }
 
 func (fasit FasitClient) doRequest(r *http.Request) ([]byte, naisd.AppError) {
@@ -311,15 +281,6 @@ func (fasit FasitClient) getScopedResource(resourcesRequest ResourceRequest, fas
 	return resource, nil
 }
 
-func SafeMarshal(v interface{}) ([]byte, error) {
-	/*	String values encode as JSON strings coerced to valid UTF-8, replacing invalid bytes with the Unicode replacement rune.
-		The angle brackets "<" and ">" are escaped to "\u003c" and "\u003e" to keep some browsers from misinterpreting JSON output as HTML.
-		Ampersand "&" is also escaped to "\u0026" for the same reason. This escaping can be disabled using an Encoder that had SetEscapeHTML(false) called on it.	*/
-	b, err := json.Marshal(v)
-	b = bytes.Replace(b, []byte("\\u0026"), []byte("&"), -1)
-	return b, err
-}
-
 func (fasit FasitClient) GetFasitEnvironmentClass(environmentName string) (string, error) {
 	req, err := http.NewRequest("GET", fasit.FasitUrl+"/api/v2/environments/"+environmentName, nil)
 	if err != nil {
@@ -366,19 +327,19 @@ func (fasit FasitClient) GetFasitApplication(application string) error {
 }
 
 func (fasit FasitClient) mapToNaisResource(fasitResource FasitResource, propertyMap map[string]string) (resource NaisResource, err error) {
-	resource.name = fasitResource.Alias
-	resource.resourceType = fasitResource.ResourceType
-	resource.properties = fasitResource.Properties
-	resource.propertyMap = propertyMap
-	resource.id = fasitResource.Id
-	resource.scope = fasitResource.Scope
+	resource.Name = fasitResource.Alias
+	resource.ResourceType = fasitResource.ResourceType
+	resource.Properties = fasitResource.Properties
+	resource.PropertyMap = propertyMap
+	resource.ID = fasitResource.Id
+	resource.Scope = fasitResource.Scope
 
 	if len(fasitResource.Secrets) > 0 {
 		secret, err := resolveSecret(fasitResource.Secrets, fasit.Username, fasit.Password)
 		if err != nil {
 			return NaisResource{}, fmt.Errorf("unable to resolve secret: %s", err)
 		}
-		resource.secret = secret
+		resource.Secret = secret
 	}
 
 	if fasitResource.ResourceType == "certificate" && len(fasitResource.Certificates) > 0 {
@@ -388,7 +349,7 @@ func (fasit FasitClient) mapToNaisResource(fasitResource FasitResource, property
 			return NaisResource{}, fmt.Errorf("unable to resolve Certificates: %s", err)
 		}
 
-		resource.certificates = files
+		resource.Certificates = files
 
 	} else if fasitResource.ResourceType == "applicationproperties" {
 		lineFilter, err := regexp.Compile(`^[\p{L}\d_.]+=.+`)
@@ -400,12 +361,12 @@ func (fasit FasitClient) mapToNaisResource(fasitResource FasitResource, property
 			line = strings.TrimSpace(line)
 			if lineFilter.MatchString(line) {
 				parts := strings.SplitN(line, "=", 2)
-				resource.properties[parts[0]] = parts[1]
+				resource.Properties[parts[0]] = parts[1]
 			} else if len(line) > 0 {
 				log.Infof("the following string did not match our regex: %s", line)
 			}
 		}
-		delete(resource.properties, "applicationProperties")
+		delete(resource.Properties, "applicationProperties")
 	}
 
 	return resource, nil
@@ -537,89 +498,4 @@ func (fasit FasitClient) buildRequest(method, path string, queryParams map[strin
 	}
 	req.URL.RawQuery = q.Encode()
 	return req, nil
-}
-
-func generateScope(resource naisd.ExposedResource, existingResource NaisResource, fasitEnvironmentClass, fasitEnvironment, zone string) Scope {
-	if resource.AllZones {
-		return Scope{
-			EnvironmentClass: fasitEnvironmentClass,
-			Environment:      fasitEnvironment,
-		}
-	}
-	if existingResource.id > 0 {
-		return existingResource.scope
-	}
-	return Scope{
-		EnvironmentClass: fasitEnvironmentClass,
-		Environment:      fasitEnvironment,
-		Zone:             zone,
-	}
-}
-
-func buildApplicationInstancePayload(deploymentRequest naisd.Deploy, fasitEnvironment, subDomain string, exposedResourceIds, usedResourceIds []int) ApplicationInstancePayload {
-	// Need to make an empty array of Resources in order for json.Marshall to return [] and not null
-	// see https://danott.co/posts/json-marshalling-empty-slices-to-empty-arrays-in-go.html for details
-	emptyResources := make([]Resource, 0)
-	domain := strings.Join(strings.Split(subDomain, ".")[1:], ".")
-	applicationInstancePayload := ApplicationInstancePayload{
-		Application:      deploymentRequest.Application,
-		Environment:      fasitEnvironment,
-		Version:          deploymentRequest.Version,
-		ClusterName:      "nais",
-		Domain:           domain,
-		ExposedResources: emptyResources,
-		UsedResources:    emptyResources,
-	}
-	if len(exposedResourceIds) > 0 {
-		for _, id := range exposedResourceIds {
-			applicationInstancePayload.ExposedResources = append(applicationInstancePayload.ExposedResources, Resource{id})
-		}
-	}
-	if len(usedResourceIds) > 0 {
-		for _, id := range usedResourceIds {
-			applicationInstancePayload.UsedResources = append(applicationInstancePayload.UsedResources, Resource{id})
-		}
-	}
-
-	return applicationInstancePayload
-}
-
-func buildResourcePayload(resource naisd.ExposedResource, existingResource NaisResource, fasitEnvironmentClass, fasitEnvironment, zone, hostname string) ResourcePayload {
-	// Reference of valid resources in Fasit
-	// ['DataSource', 'MSSQLDataSource', 'DB2DataSource', 'LDAP', 'BaseUrl', 'Credential', 'Certificate', 'OpenAm', 'Cics', 'RoleMapping', 'QueueManager', 'WebserviceEndpoint', 'SoapService', 'RestService', 'WebserviceGateway', 'EJB', 'Datapower', 'EmailAddress', 'SMTPServer', 'Queue', 'Topic', 'DeploymentManager', 'ApplicationProperties', 'MemoryParameters', 'LoadBalancer', 'LoadBalancerConfig', 'FileLibrary', 'Channel
-	if strings.EqualFold("restservice", resource.ResourceType) {
-		return RestResourcePayload{
-			Type:  "RestService",
-			Alias: resource.Alias,
-			Properties: RestProperties{
-				Url:         "https://" + hostname + resource.Path,
-				Description: resource.Description,
-			},
-			Scope: generateScope(resource, existingResource, fasitEnvironmentClass, fasitEnvironment, zone),
-		}
-
-	} else if strings.EqualFold("WebserviceEndpoint", resource.ResourceType) || strings.EqualFold("SoapService", resource.ResourceType) {
-		Url, _ := url.Parse("http://maven.adeo.no/nexus/service/local/artifact/maven/redirect")
-		wsdlArtifactQuery := url.Values{}
-		wsdlArtifactQuery.Add("r", "m2internal")
-		wsdlArtifactQuery.Add("g", resource.WsdlGroupId)
-		wsdlArtifactQuery.Add("a", resource.WsdlArtifactId)
-		wsdlArtifactQuery.Add("v", resource.WsdlVersion)
-		wsdlArtifactQuery.Add("e", "zip")
-		Url.RawQuery = wsdlArtifactQuery.Encode()
-
-		return WebserviceResourcePayload{
-			Type:  resource.ResourceType,
-			Alias: resource.Alias,
-			Properties: WebserviceProperties{
-				EndpointUrl:   "https://" + hostname + resource.Path,
-				WsdlUrl:       Url.String(),
-				SecurityToken: resource.SecurityToken,
-				Description:   resource.Description,
-			},
-			Scope: generateScope(resource, existingResource, fasitEnvironmentClass, fasitEnvironment, zone),
-		}
-	} else {
-		return nil
-	}
 }
