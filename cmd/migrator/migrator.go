@@ -14,12 +14,12 @@ import (
 )
 
 type Config struct {
-	FasitUrl string
+	FasitURL string
 }
 
 var (
 	cfg = Config{
-		FasitUrl: "http://localhost:8080",
+		FasitURL: "http://localhost:8080",
 	}
 	deploy = naisd.Deploy{
 		Application:      "myapplication",
@@ -32,9 +32,10 @@ var (
 func init() {
 	flag.StringVar(&deploy.Application, "application", deploy.Application, "application name")
 	flag.StringVar(&deploy.Zone, "zone", deploy.Zone, "zone (fss, sbs)")
-	flag.StringVar(&deploy.FasitUsername, "fasit-username", deploy.FasitUsername, "fasit username; leave blank to disable Fasit")
-	flag.StringVar(&deploy.FasitPassword, "fasit-password", deploy.FasitPassword, "fasit password")
-	flag.StringVar(&deploy.FasitEnvironment, "fasit-environment", deploy.FasitEnvironment, "fasit environment ([ptuo][0-9]*")
+	flag.StringVar(&cfg.FasitURL, "fasit-url", cfg.FasitURL, "Fasit url")
+	flag.StringVar(&deploy.FasitUsername, "fasit-username", deploy.FasitUsername, "Fasit username; leave blank to disable Fasit")
+	flag.StringVar(&deploy.FasitPassword, "fasit-password", deploy.FasitPassword, "Fasit password")
+	flag.StringVar(&deploy.FasitEnvironment, "fasit-environment", deploy.FasitEnvironment, "Fasit environment ([ptuo][0-9]*")
 }
 
 func main() {
@@ -76,7 +77,7 @@ func run() error {
 		)
 
 		fasitClient := fasit.FasitClient{
-			FasitUrl: cfg.FasitUrl,
+			FasitUrl: cfg.FasitURL,
 			Username: deploy.FasitUsername,
 			Password: deploy.FasitPassword,
 		}
