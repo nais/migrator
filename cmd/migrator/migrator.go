@@ -90,10 +90,15 @@ func run() error {
 			return fmt.Errorf("fetch fasit resources: %s", err)
 		}
 		log.Infof("Retrieved %d Fasit resources in %s\n", len(fasitResources), elapsed.String())
+		// d, _ := json.MarshalIndent(fasitResources, "", "  ")
+		// os.Stderr.Write(d)
 	}
 
 	application = mapper.Convert(manifest, deploy, fasitResources)
 
+	log.Infoln("Conversion successful! Here is your Naiserator file:")
+
+	os.Stdout.WriteString("---\n")
 	encoder := yaml.NewEncoder(os.Stdout)
 	err = encoder.Encode(application)
 	if err != nil {

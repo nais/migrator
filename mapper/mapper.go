@@ -6,6 +6,7 @@ import (
 	"github.com/nais/migrator/fasit"
 	"github.com/nais/migrator/models/naisd"
 	"github.com/nais/migrator/models/naiserator"
+	log "github.com/sirupsen/logrus"
 	"net/url"
 )
 
@@ -45,6 +46,32 @@ func fasitIngress(resources []fasit.NaisResource) []string {
 	}
 
 	return ingresses
+}
+
+func fasitEnv(resources []fasit.NaisResource) []naiserator.EnvVar {
+	var vars []naiserator.EnvVar
+
+	// TODO: REDIS_HOST with redis:true
+
+	for _, resource := range resources {
+		for k := range resource.Secret {
+			log.Warnf("Skipping environment variable '%s' from secret '%s'", resource.ToEnvironmentVariable(k), resource.Name)
+		}
+		for k := range resource.Certificates {
+			log.Warnf("Skipping certificate '%s' in resource '%s'", k, resource.Name)
+			if resource.Name == "nav_truststore" {
+				log.Infof("Certificate in resource '%s' is automatically included in Naiserator deployments", k)
+			}
+		}
+		for key, val := range resource.Properties {
+			vars = append(vars, naiserator.EnvVar{
+				Name:  resource.ToEnvironmentVariable(key),
+				Value: val,
+			})
+		}
+	}
+
+	return vars
 }
 
 func probeConvert(manifest naisd.NaisManifest, probe naisd.Probe) naiserator.Probe {
@@ -90,6 +117,16 @@ func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy, resources []fasit
 		ingresses = append(ingresses, fasitIngress(resources)...)
 	}
 
+	// TODO: fix automatically by creating another Application spec?
+	if manifest.Redis.Enabled {
+		log.Warn("Automatic Redis setup is unsupported with Naiserator.")
+	}
+
+	// TODO: fix automatically by creating an Alert spec?
+	if len(manifest.Alerts) > 0 {
+		log.Warn("Alerts must be configured using the Alert resource.")
+	}
+
 	return naiserator.Application{
 		TypeMeta: naiserator.TypeMeta{
 			Kind:       "Application",
@@ -118,14 +155,8 @@ func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy, resources []fasit
 				Requests: resourceConvert(manifest.Resources.Requests),
 				Limits:   resourceConvert(manifest.Resources.Limits),
 			},
-
-			// TODO: FasitResources -> environment variables and/or secrets
-
+			Env:            fasitEnv(resources),
 			LeaderElection: manifest.LeaderElection,
-
-			// TODO: Redis deprecation -> additional application
-
-			// TODO: Alerts deprecation -> alerterator
 
 			Logformat:    manifest.Logformat,
 			Logtransform: manifest.Logtransform,
