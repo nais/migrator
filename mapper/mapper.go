@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/nais/migrator/models/naisd"
 	"github.com/nais/migrator/models/naiserator"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func autoIngress(deploy naisd.Deploy) string {
@@ -73,11 +72,12 @@ func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy) naiserator.Applic
 	}
 
 	return naiserator.Application{
-		TypeMeta: metav1.TypeMeta{
+		TypeMeta: naiserator.TypeMeta{
 			Kind:       "Application",
 			APIVersion: "nais.io/v1alpha1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: naiserator.ObjectMeta{
+			Name: deploy.Application,
 			Labels: map[string]string{
 				"team": manifest.Team,
 			},
