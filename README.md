@@ -6,6 +6,26 @@ Migrator helps with transitioning between systems by converting your `nais.yaml`
 
 Optionally, it also pulls environment variables and secrets from _Fasit_ to your local drive.
 
+## Usage
+
+To build a binary, clone the repository and type `make` to compile. You need to [download and install Go](https://golang.org/doc/install) v1.13 or later.
+
+```
+git clone https://github.com/nais/migrator
+cd migrator
+make
+read fasit_username
+read -s fasit_password
+./migrator \
+    --application myapplication \
+    --zone fss \
+    --fasit-environment q0 \
+    --fasit-username $fasit_username \
+    --fasit-password $fasit_password \
+    < nais-manifest.yaml \
+    > naiserator.yaml
+```
+
 ## Where to get support
 
 Your first point of information should be the [NAIS user documentation](https://doc.nais.io/observability).
