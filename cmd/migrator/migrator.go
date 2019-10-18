@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/nais/migrator/fasit"
 	"github.com/nais/migrator/mapper"
 	"github.com/nais/migrator/models/naisd"
 	"github.com/nais/migrator/models/naiserator"
@@ -20,19 +21,19 @@ var (
 		FasitUrl: "http://localhost:8080",
 	}
 	deploy = naisd.Deploy{
-		Application: "myapplication",
-		Environment: naisd.ENVIRONMENT_P,
-		Zone:        naisd.ZONE_FSS,
-		Namespace:   "default",
+		Application:      "myapplication",
+		Zone:             naisd.ZONE_FSS,
+		Namespace:        "default",
+		FasitEnvironment: naisd.ENVIRONMENT_P,
 	}
 )
 
 func init() {
 	flag.StringVar(&deploy.Application, "application", deploy.Application, "application name")
-	flag.StringVar(&deploy.Environment, "environment", deploy.Environment, "application environment (p, q, t, u)")
 	flag.StringVar(&deploy.Zone, "zone", deploy.Zone, "zone (fss, sbs)")
 	flag.StringVar(&deploy.FasitUsername, "fasit-username", deploy.FasitUsername, "fasit username; leave blank to disable Fasit")
 	flag.StringVar(&deploy.FasitPassword, "fasit-password", deploy.FasitPassword, "fasit password")
+	flag.StringVar(&deploy.FasitEnvironment, "fasit-environment", deploy.FasitEnvironment, "fasit environment ([ptuo][0-9]*")
 }
 
 func main() {
@@ -54,6 +55,7 @@ func run() error {
 	var err error
 	var manifest naisd.NaisManifest
 	var application naiserator.Application
+	var fasitResources []fasit.NaisResource
 
 	decoder := yaml.NewDecoder(os.Stdin)
 	err = decoder.Decode(&manifest)
@@ -61,7 +63,20 @@ func run() error {
 		return fmt.Errorf("decode input: %s", err)
 	}
 
-	application = mapper.Convert(manifest, deploy)
+	if len(deploy.FasitUsername) > 0 {
+		fasitClient := fasit.FasitClient{
+			FasitUrl: cfg.FasitUrl,
+			Username: deploy.FasitUsername,
+			Password: deploy.FasitPassword,
+		}
+
+		fasitResources, err = fasit.FetchFasitResources(fasitClient, deploy.Application, deploy.FasitEnvironment, deploy.Zone, manifest.FasitResources.Used)
+		if err != nil {
+			return fmt.Errorf("fetch fasit resources: %s", err)
+		}
+	}
+
+	application = mapper.Convert(manifest, deploy, fasitResources)
 
 	encoder := yaml.NewEncoder(os.Stdout)
 	err = encoder.Encode(application)

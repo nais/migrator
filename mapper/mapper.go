@@ -3,8 +3,10 @@ package mapper
 
 import (
 	"fmt"
+	"github.com/nais/migrator/fasit"
 	"github.com/nais/migrator/models/naisd"
 	"github.com/nais/migrator/models/naiserator"
+	"net/url"
 )
 
 func autoIngress(deploy naisd.Deploy) string {
@@ -12,13 +14,13 @@ func autoIngress(deploy naisd.Deploy) string {
 	var domain string
 
 	if deploy.Zone == naisd.ZONE_FSS {
-		if deploy.Environment == naisd.ENVIRONMENT_P {
+		if deploy.FasitEnvironment == naisd.ENVIRONMENT_P {
 			domain = "adeo.no"
 		} else {
 			domain = "preprod.local"
 		}
 	} else {
-		if deploy.Environment == naisd.ENVIRONMENT_P {
+		if deploy.FasitEnvironment == naisd.ENVIRONMENT_P {
 			domain = "oera.no"
 		} else {
 			domain = "oera-q.local"
@@ -26,6 +28,23 @@ func autoIngress(deploy naisd.Deploy) string {
 	}
 
 	return fmt.Sprintf(format, deploy.Application, domain)
+}
+
+func fasitIngress(resources []fasit.NaisResource) []string {
+	var ingresses []string
+	var u url.URL
+
+	for _, resource := range resources {
+		for _, ingress := range resource.Ingresses {
+			u.Scheme = "https"
+			u.Path = ingress.Path
+			u.Host = ingress.Host
+
+			ingresses = append(ingresses, u.String())
+		}
+	}
+
+	return ingresses
 }
 
 func probeConvert(manifest naisd.NaisManifest, probe naisd.Probe) naiserator.Probe {
@@ -63,12 +82,12 @@ func resourceConvert(config naisd.ResourceList) naiserator.ResourceSpec {
 }
 
 // Convert from naisd manifest to Naiserator application Kubernetes resource.
-func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy) naiserator.Application {
+func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy, resources []fasit.NaisResource) naiserator.Application {
 	var ingresses []string
 
 	if !manifest.Ingress.Disabled {
-		// TODO: lbconfig from Fasit
 		ingresses = append(ingresses, autoIngress(deploy))
+		ingresses = append(ingresses, fasitIngress(resources)...)
 	}
 
 	return naiserator.Application{
