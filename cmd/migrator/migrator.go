@@ -31,7 +31,7 @@ func init() {
 	flag.StringVar(&deploy.Application, "application", deploy.Application, "application name")
 	flag.StringVar(&deploy.Environment, "environment", deploy.Environment, "application environment (p, q, t, u)")
 	flag.StringVar(&deploy.Zone, "zone", deploy.Zone, "zone (fss, sbs)")
-	flag.StringVar(&deploy.FasitUsername, "fasit-username", deploy.FasitUsername, "fasit username; leave blank to disable")
+	flag.StringVar(&deploy.FasitUsername, "fasit-username", deploy.FasitUsername, "fasit username; leave blank to disable Fasit")
 	flag.StringVar(&deploy.FasitPassword, "fasit-password", deploy.FasitPassword, "fasit password")
 }
 
