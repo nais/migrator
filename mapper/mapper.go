@@ -8,7 +8,7 @@ import (
 )
 
 func autoIngress(deploy naisd.Deploy) string {
-	const format = "%s.nais.%s"
+	const format = "https://%s.nais.%s"
 	var domain string
 
 	if deploy.Zone == naisd.ZONE_FSS {

@@ -12,24 +12,27 @@ import (
 )
 
 type Config struct {
-	Application   string
-	Fasit         bool
-	FasitUser     string
-	FasitPassword string
-	FasitUrl      string
+	FasitUrl string
 }
 
 var (
 	cfg = Config{
 		FasitUrl: "http://localhost:8080",
 	}
+	deploy = naisd.Deploy{
+		Application: "myapplication",
+		Environment: naisd.ENVIRONMENT_P,
+		Zone:        naisd.ZONE_FSS,
+		Namespace:   "default",
+	}
 )
 
 func init() {
-	flag.StringVar(&cfg.Application, "application", cfg.Application, "application name")
-	flag.BoolVar(&cfg.Fasit, "fasit", cfg.Fasit, "use fasit integration")
-	flag.StringVar(&cfg.FasitUser, "fasit-user", cfg.FasitUser, "fasit username")
-	flag.StringVar(&cfg.FasitPassword, "fasit-password", cfg.FasitPassword, "fasit password")
+	flag.StringVar(&deploy.Application, "application", deploy.Application, "application name")
+	flag.StringVar(&deploy.Environment, "environment", deploy.Environment, "application environment (p, q, t, u)")
+	flag.StringVar(&deploy.Zone, "zone", deploy.Zone, "zone (fss, sbs)")
+	flag.StringVar(&deploy.FasitUsername, "fasit-username", deploy.FasitUsername, "fasit username; leave blank to disable")
+	flag.StringVar(&deploy.FasitPassword, "fasit-password", deploy.FasitPassword, "fasit password")
 }
 
 func main() {
@@ -49,7 +52,6 @@ func main() {
 
 func run() error {
 	var err error
-	var deploy naisd.Deploy
 	var manifest naisd.NaisManifest
 	var application naiserator.Application
 
@@ -58,8 +60,6 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("decode input: %s", err)
 	}
-
-	deploy.Application = cfg.Application
 
 	application = mapper.Convert(manifest, deploy)
 
