@@ -10,6 +10,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"gopkg.in/yaml.v2"
 	"os"
+	"time"
 )
 
 type Config struct {
@@ -22,8 +23,8 @@ var (
 	}
 	deploy = naisd.Deploy{
 		Application:      "myapplication",
-		Zone:             naisd.ZONE_FSS,
 		Namespace:        "default",
+		Zone:             naisd.ZONE_FSS,
 		FasitEnvironment: naisd.ENVIRONMENT_P,
 	}
 )
@@ -57,23 +58,37 @@ func run() error {
 	var application naiserator.Application
 	var fasitResources []fasit.NaisResource
 
+	log.Infoln("Reading NAIS manifest from stdin, hit Ctrl-D when finished")
+
 	decoder := yaml.NewDecoder(os.Stdin)
 	err = decoder.Decode(&manifest)
 	if err != nil {
 		return fmt.Errorf("decode input: %s", err)
 	}
 
+	log.Infoln("Finished reading NAIS manifest")
+
 	if len(deploy.FasitUsername) > 0 {
+		log.Infof("Fasit integration enabled, retrieving resources for application '%s' environment '%s' zone '%s'\n",
+			deploy.Application,
+			deploy.FasitEnvironment,
+			deploy.Zone,
+		)
+
 		fasitClient := fasit.FasitClient{
 			FasitUrl: cfg.FasitUrl,
 			Username: deploy.FasitUsername,
 			Password: deploy.FasitPassword,
 		}
 
+		timer := time.Now()
 		fasitResources, err = fasit.FetchFasitResources(fasitClient, deploy.Application, deploy.FasitEnvironment, deploy.Zone, manifest.FasitResources.Used)
+		elapsed := time.Since(timer)
+
 		if err != nil {
 			return fmt.Errorf("fetch fasit resources: %s", err)
 		}
+		log.Infof("Retrieved %d Fasit resources in %s\n", len(fasitResources), elapsed.String())
 	}
 
 	application = mapper.Convert(manifest, deploy, fasitResources)
