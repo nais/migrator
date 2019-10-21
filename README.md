@@ -14,6 +14,19 @@ To build a binary, clone the repository and type `make` to compile. You need to 
 git clone https://github.com/nais/migrator
 cd migrator
 make
+```
+
+Migrator requires Fasit access for most use cases. Running Migrator from your laptop
+requires that you set up port forwarding to the Fasit service. This might not be available
+to all users - your mileage may vary. To access Fasit API:
+
+```
+kubectl --context prod-fss --namespace default port-forward service/fasit 8080:80
+```
+
+If it doesn't work, you'll have to run Migrator from _utviklerimage_.
+
+```
 read fasit_username
 read -s fasit_password
 ./migrator \
@@ -22,6 +35,7 @@ read -s fasit_password
     --fasit-environment q0 \
     --fasit-username $fasit_username \
     --fasit-password $fasit_password \
+    --fasit-url https://fasit.adeo.no \  # only on utviklerimage
     < nais-manifest.yaml \
     > naiserator.yaml
 ```
