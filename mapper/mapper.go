@@ -127,6 +127,10 @@ func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy, resources []fasit
 		log.Warn("Alerts must be configured using the Alert resource.")
 	}
 
+	// TODO: secrets mounted in this way:
+	// vaultpath from Fasit: everything until last slash = kvPath
+	// mountpath should be the alias/resource name
+
 	return naiserator.Application{
 		TypeMeta: naiserator.TypeMeta{
 			Kind:       "Application",
@@ -155,11 +159,14 @@ func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy, resources []fasit
 				Requests: resourceConvert(manifest.Resources.Requests),
 				Limits:   resourceConvert(manifest.Resources.Limits),
 			},
-			Env:            fasitEnv(resources),
-			LeaderElection: manifest.LeaderElection,
 
-			Logformat:    manifest.Logformat,
-			Logtransform: manifest.Logtransform,
+			// TODO: create a configmap instead of environment variables?
+			// Maybe even configmap per system?
+			Env: fasitEnv(resources),
+
+			LeaderElection: manifest.LeaderElection,
+			Logformat:      manifest.Logformat,
+			Logtransform:   manifest.Logtransform,
 			Vault: naiserator.Vault{
 				Enabled: manifest.Secrets,
 			},
