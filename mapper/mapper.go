@@ -63,6 +63,9 @@ func fasitEnv(resources []fasit.NaisResource) []naiserator.EnvVar {
 				log.Infof("Certificate in resource '%s' is automatically included in Naiserator deployments", k)
 			}
 		}
+		if resource.ResourceType == "loadbalancerconfig" {
+			continue
+		}
 		for key, val := range resource.Properties {
 			vars = append(vars, naiserator.EnvVar{
 				Name:  resource.ToEnvironmentVariable(key),
