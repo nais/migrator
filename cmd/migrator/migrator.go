@@ -9,17 +9,20 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"gopkg.in/yaml.v2"
+	"io"
 	"os"
 	"time"
 )
 
 type Config struct {
 	FasitURL string
+	Input    string
 }
 
 var (
 	cfg = Config{
 		FasitURL: "http://localhost:8080",
+		Input:    "-",
 	}
 	deploy = naisd.Deploy{
 		Application:      "myapplication",
@@ -36,6 +39,7 @@ func init() {
 	flag.StringVar(&deploy.FasitUsername, "fasit-username", deploy.FasitUsername, "Fasit username; leave blank to disable Fasit")
 	flag.StringVar(&deploy.FasitPassword, "fasit-password", deploy.FasitPassword, "Fasit password")
 	flag.StringVar(&deploy.FasitEnvironment, "fasit-environment", deploy.FasitEnvironment, "Fasit environment ([ptuo][0-9]*")
+	flag.StringVar(&cfg.Input, "input", cfg.Input, "Input file, use '-' for STDIN")
 }
 
 func main() {
@@ -58,10 +62,20 @@ func run() error {
 	var manifest naisd.NaisManifest
 	var application naiserator.Application
 	var fasitResources []fasit.NaisResource
+	var input io.Reader
 
-	log.Infoln("Reading NAIS manifest from stdin, hit Ctrl-D when finished")
+	log.Infoln("Reading NAIS manifest...")
 
-	decoder := yaml.NewDecoder(os.Stdin)
+	if cfg.Input == "-" {
+		input = os.Stdin
+	} else {
+		input, err = os.Open(cfg.Input)
+		if err != nil {
+			return fmt.Errorf("open file %s: %s", cfg.Input, err)
+		}
+	}
+
+	decoder := yaml.NewDecoder(input)
 	err = decoder.Decode(&manifest)
 	if err != nil {
 		return fmt.Errorf("decode input: %s", err)
