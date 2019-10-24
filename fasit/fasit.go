@@ -8,8 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
-	"net/http/httputil"
-	"strconv"
 	"strings"
 
 	"regexp"
@@ -333,13 +331,11 @@ func (fasit FasitClient) mapToNaisResource(fasitResource FasitResource, property
 	resource.PropertyMap = propertyMap
 	resource.ID = fasitResource.Id
 	resource.Scope = fasitResource.Scope
+	resource.Secret = make(map[string]string)
 
 	if len(fasitResource.Secrets) > 0 {
-		secret, err := resolveSecret(fasitResource.Secrets, fasit.Username, fasit.Password)
-		if err != nil {
-			return NaisResource{}, fmt.Errorf("unable to resolve secret: %s", err)
-		}
-		resource.Secret = secret
+		k, v := vaultSecret(fasitResource.Secrets)
+		resource.Secret[k] = v
 	}
 
 	if fasitResource.ResourceType == "certificate" && len(fasitResource.Certificates) > 0 {
@@ -445,34 +441,17 @@ func parseFilesObject(files map[string]interface{}) (fileName string, fileUrl st
 	return fileName, fileUrl, nil
 }
 
-func resolveSecret(secrets map[string]map[string]string, username string, password string) (map[string]string, error) {
-
-	req, err := http.NewRequest("GET", secrets[getFirstKey(secrets)]["ref"], nil)
-
-	if err != nil {
-		return map[string]string{}, err
+func vaultSecret(secrets map[string]map[string]string) (string, string) {
+	key := getFirstKey(secrets)
+	vaultPath := secrets[key]["vaultpath"]
+	if len(vaultPath) == 0 {
+		return key, ""
 	}
 
-	req.SetBasicAuth(username, password)
+	parts := strings.Split(vaultPath, "/")
+	vaultPath = "/" + strings.Join(parts[:len(parts)-1], "/")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return map[string]string{}, fmt.Errorf("error contacting fasit when resolving secret: %s", err)
-	}
-
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if resp.StatusCode > 299 {
-		if requestDump, e := httputil.DumpRequest(req, false); e == nil {
-			log.Error("Fasit request: ", string(requestDump))
-		}
-		return map[string]string{}, fmt.Errorf("fasit gave error message when resolving secret: %s (HTTP %v)", body, strconv.Itoa(resp.StatusCode))
-	}
-
-	return map[string]string{"password": string(body)}, nil
+	return key, vaultPath
 }
 
 func getFirstKey(m map[string]map[string]string) string {

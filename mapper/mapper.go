@@ -54,8 +54,10 @@ func fasitEnv(resources []fasit.NaisResource) []naiserator.EnvVar {
 	// TODO: REDIS_HOST with redis:true
 
 	for _, resource := range resources {
-		for k := range resource.Secret {
-			log.Warnf("Skipping environment variable '%s' from secret '%s'", resource.ToEnvironmentVariable(k), resource.Name)
+		for k, v := range resource.Secret {
+			if len(v) == 0 {
+				log.Warnf("Skipping environment variable '%s' from secret '%s'", resource.ToEnvironmentVariable(k), resource.Name)
+			}
 		}
 		for k := range resource.Certificates {
 			log.Warnf("Skipping certificate '%s' in resource '%s'", k, resource.Name)
@@ -75,6 +77,26 @@ func fasitEnv(resources []fasit.NaisResource) []naiserator.EnvVar {
 	}
 
 	return vars
+}
+
+func fasitVaultSecrets(resources []fasit.NaisResource) []naiserator.SecretPath {
+	var paths []naiserator.SecretPath
+
+	for _, resource := range resources {
+		for k, secret := range resource.Secret {
+			if len(secret) == 0 {
+				continue
+			}
+			path := naiserator.SecretPath{
+				KvPath:    secret,
+				MountPath: fmt.Sprintf("/var/run/secrets/nais.io/%s", resource.Name),
+			}
+			paths = append(paths, path)
+			log.Warnf("Secret in environment variable '%s' is now mounted from Vault under the path '%s'", resource.ToEnvironmentVariable(k), path.MountPath)
+		}
+	}
+
+	return paths
 }
 
 func probeConvert(manifest naisd.NaisManifest, probe naisd.Probe) naiserator.Probe {
@@ -130,9 +152,19 @@ func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy, resources []fasit
 		log.Warn("Alerts must be configured using the Alert resource.")
 	}
 
-	// TODO: secrets mounted in this way:
-	// vaultpath from Fasit: everything until last slash = kvPath
-	// mountpath should be the alias/resource name
+	secretPaths := fasitVaultSecrets(resources)
+	if len(secretPaths) > 0 {
+		zonePrefix := "preprod"
+		if deploy.FasitEnvironment == naisd.ENVIRONMENT_P {
+			zonePrefix = "prod"
+		}
+		defPath := "/kv/%s/%s/%s/%s"
+		defPath = fmt.Sprintf(defPath, zonePrefix, deploy.Zone, deploy.Application, deploy.Namespace)
+		secretPaths = append(secretPaths, naiserator.SecretPath{
+			KvPath:    defPath,
+			MountPath: "/var/run/secrets/nais.io/vault",
+		})
+	}
 
 	return naiserator.Application{
 		TypeMeta: naiserator.TypeMeta{
@@ -171,7 +203,8 @@ func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy, resources []fasit
 			Logformat:      manifest.Logformat,
 			Logtransform:   manifest.Logtransform,
 			Vault: naiserator.Vault{
-				Enabled: manifest.Secrets,
+				Enabled: manifest.Secrets || len(secretPaths) > 0,
+				Mounts:  secretPaths,
 			},
 			WebProxy: manifest.Webproxy,
 		},

@@ -110,8 +110,8 @@ type EnvVar struct {
 }
 
 type SecretPath struct {
-	MountPath string `yaml:"mountPath"`
 	KvPath    string `yaml:"kvPath"`
+	MountPath string `yaml:"mountPath"`
 }
 
 type Vault struct {
