@@ -8,23 +8,12 @@ Optionally, it also pulls environment variables and secrets from _Fasit_ to your
 
 ## Usage
 
-To build a binary, clone the repository and type `make` to compile. You need to [download and install Go](https://golang.org/doc/install) v1.13 or later.
-
-```
-git clone https://github.com/nais/migrator
-cd migrator
-make
-```
-
 Migrator requires Fasit access for most use cases. Running Migrator from your laptop
-requires that you set up port forwarding to the Fasit service. This might not be available
-to all users - your mileage may vary. To access Fasit API:
+requires that you set up port forwarding to the Fasit service. This is not generally available
+to users and requires port forwarding privileges.
 
-```
-kubectl --context prod-fss --namespace default port-forward service/fasit 8080:80
-```
-
-If it doesn't work, you'll have to run Migrator from _utviklerimage_.
+Your best chance is to run Migrator from _utviklerimage_. Use one of our pre-compiled
+binaries from the [releases page](releases/).
 
 ```
 read fasit_username
@@ -38,6 +27,23 @@ read -s fasit_password
     --fasit-url https://fasit.adeo.no \  # only on utviklerimage
     < nais-manifest.yaml \
     > naiserator.yaml
+```
+
+If you have port-forwarding capabilities, you can set that up using:
+
+```
+kubectl --context prod-fss --namespace default port-forward service/fasit 8080:80
+```
+
+## Building
+
+To build a binary, clone the repository and type `make` to compile. You need to [download and install Go](https://golang.org/doc/install) v1.13 or later.
+
+```
+git clone https://github.com/nais/migrator
+cd migrator
+make
+# cross compile using `make linux`, `make windows`, `make darwin`
 ```
 
 ## Where to get support
