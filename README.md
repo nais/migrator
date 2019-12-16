@@ -13,7 +13,7 @@ requires that you set up port forwarding to the Fasit service. This is not gener
 to users and requires port forwarding privileges.
 
 Your best chance is to run Migrator from _utviklerimage_. Use one of our pre-compiled
-binaries from the [releases page](releases/).
+binaries from the [releases page](https://github.com/nais/migrator/releases/).
 
 ```
 read fasit_username
