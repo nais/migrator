@@ -1,14 +1,12 @@
 package naiserator
 
-// +groupName="nais.io"
-
 // Application defines a NAIS application.
 //
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Team",type="string",JSONPath=".metadata.labels.team"
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.deploymentRolloutStatus"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.synchronizationState"
 // +kubebuilder:resource:path="applications",shortName="app",singular="application"
 type Application struct {
 	TypeMeta   `yaml:",inline"`
@@ -21,8 +19,10 @@ type Application struct {
 // ApplicationSpec contains the NAIS manifest.
 type ApplicationSpec struct {
 	AccessPolicy    AccessPolicy         `yaml:"accessPolicy,omitempty"`
-	ConfigMaps      ConfigMaps           `yaml:"configMaps,omitempty"`
+	GCP             GCP                  `yaml:"gcp,omitempty"`
 	Env             []EnvVar             `yaml:"env,omitempty"`
+	EnvFrom         []EnvFrom            `yaml:"envFrom,omitempty"`
+	FilesFrom       []FilesFrom          `yaml:"filesFrom,omitempty"`
 	Image           string               `yaml:"image"`
 	Ingresses       []string             `yaml:"ingresses,omitempty"`
 	LeaderElection  bool                 `yaml:"leaderElection,omitempty"`
@@ -34,11 +34,10 @@ type ApplicationSpec struct {
 	Readiness       Probe                `yaml:"readiness,omitempty"`
 	Replicas        Replicas             `yaml:"replicas,omitempty"`
 	Resources       ResourceRequirements `yaml:"resources,omitempty"`
-	Secrets         []Secret             `yaml:"secrets,omitempty"`
 	SecureLogs      SecureLogs           `yaml:"secureLogs,omitempty"`
 	Service         Service              `yaml:"service,omitempty"`
 	SkipCaBundle    bool                 `yaml:"skipCaBundle,omitempty"`
-	Strategy        Strategy             `yaml:"strategy,omitempty"`
+	Strategy        *Strategy            `yaml:"strategy,omitempty"`
 	Vault           Vault                `yaml:"vault,omitempty"`
 	WebProxy        bool                 `yaml:"webproxy,omitempty"`
 
@@ -50,6 +49,7 @@ type ApplicationSpec struct {
 type ApplicationStatus struct {
 	CorrelationID           string `yaml:"correlationID,omitempty"`
 	DeploymentRolloutStatus string `yaml:"deploymentRolloutStatus,omitempty"`
+	SynchronizationState    string `yaml:"synchronizationState,omitempty"`
 }
 
 type SecureLogs struct {
@@ -103,25 +103,42 @@ type EnvVarSource struct {
 	FieldRef ObjectFieldSelector `yaml:"fieldRef"`
 }
 
+type CloudStorageBucket struct {
+	Name string `yaml:"name"`
+}
+
+type GCP struct {
+	Buckets []CloudStorageBucket `yaml:"buckets,omitempty"`
+}
+
 type EnvVar struct {
 	Name      string       `yaml:"name"`
 	Value     string       `yaml:"value,omitempty"`
 	ValueFrom EnvVarSource `yaml:"valueFrom,omitempty"`
 }
 
+type EnvFrom struct {
+	ConfigMap string `yaml:"configmap,omitempty"`
+	Secret    string `yaml:"secret,omitempty"`
+}
+
+type FilesFrom struct {
+	ConfigMap string `yaml:"configmap,omitempty"`
+	Secret    string `yaml:"secret,omitempty"`
+	MountPath string `yaml:"mountPath,omitempty"`
+}
+
 type SecretPath struct {
-	KvPath    string `yaml:"kvPath"`
 	MountPath string `yaml:"mountPath"`
+	KvPath    string `yaml:"kvPath"`
+	// +kubebuilder:validation:Enum=flatten;yaml;yaml;env;properties;""
+	Format string `yaml:"format,omitempty"`
 }
 
 type Vault struct {
 	Enabled bool         `yaml:"enabled,omitempty"`
 	Sidecar bool         `yaml:"sidecar,omitempty"`
 	Mounts  []SecretPath `yaml:"paths,omitempty"`
-}
-
-type ConfigMaps struct {
-	Files []string `yaml:"files,omitempty"`
 }
 
 type Strategy struct {
@@ -137,32 +154,24 @@ type AccessPolicyExternalRule struct {
 	Host string `yaml:"host"`
 }
 
-type AccessPolicyGressRule struct {
+type AccessPolicyRule struct {
 	Application string `yaml:"application"`
 	Namespace   string `yaml:"namespace,omitempty"`
 }
 
 type AccessPolicyInbound struct {
-	Rules []AccessPolicyGressRule `yaml:"rules"`
+	Rules []AccessPolicyRule `yaml:"rules"`
 }
 
 type AccessPolicyOutbound struct {
-	Rules    []AccessPolicyGressRule    `yaml:"rules"`
-	External []AccessPolicyExternalRule `yaml:"external"`
+	Rules    []AccessPolicyRule         `yaml:"rules,omitempty"`
+	External []AccessPolicyExternalRule `yaml:"external,omitempty"`
 }
 
 type AccessPolicy struct {
 	Inbound  AccessPolicyInbound  `yaml:"inbound,omitempty"`
 	Outbound AccessPolicyOutbound `yaml:"outbound,omitempty"`
 }
-
-type Secret struct {
-	Name string `yaml:"name"`
-	// +kubebuilder:validation:Enum="";env;files
-	Type      string `yaml:"type,omitempty"`
-	MountPath string `yaml:"mountPath,omitempty"`
-}
-
 type ObjectMeta struct {
 	Name        string            `yaml:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
 	Namespace   string            `yaml:"namespace,omitempty" protobuf:"bytes,3,opt,name=namespace"`

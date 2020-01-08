@@ -181,7 +181,7 @@ func Convert(manifest naisd.NaisManifest, deploy naisd.Deploy, resources []fasit
 		Spec: naiserator.ApplicationSpec{
 			Image: manifest.Image,
 			Port:  manifest.Port,
-			Strategy: naiserator.Strategy{
+			Strategy: &naiserator.Strategy{
 				Type: manifest.DeploymentStrategy,
 			},
 			Readiness:       probeConvert(manifest, manifest.Healthcheck.Readiness),
