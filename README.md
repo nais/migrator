@@ -35,6 +35,17 @@ If you have port-forwarding capabilities, you can set that up using:
 kubectl --context prod-fss --namespace default port-forward service/fasit 8080:80
 ```
 
+### Windows
+
+Download `.exe` binary from the
+[releases page](https://github.com/nais/migrator/releases/).
+The commands mentioned above works when using GitBash or something similar, but
+you have to remove all linebreaks, like this: 
+
+```
+./migrator --application myapplication --zone fss --fasit-environment q0 --fasit-username $fasit_username --fasit-password $fasit_password --fasit-url https://fasit.adeo.no < nais-manifest.yaml > naiserator.yaml
+```
+
 ## Building
 
 To build a binary, clone the repository and type `make` to compile. You need to [download and install Go](https://golang.org/doc/install) v1.13 or later.
